@@ -11,7 +11,7 @@
 
 # -- Environment -------------------------------------------------------------------
 %if #{==:#{EDITOR},}
-  set-environment -g EDITOR $(echo "$HOME/.local/share/bob/nvim-bin/nvim")
+  run 'NVIM_PATH=$(echo "$HOME/.local/share/bob/nvim-bin/nvim");"$TMUX_PROGRAM" set-environment -g EDITOR "$NVIM_PATH"'
 %endif
 %if #{==:#{TMUX_CONF_DIR},}
   run 'TMUX_CONF_DIR=$(dirname "#{TMUX_CONF}"); "$TMUX_PROGRAM" set-environment -g TMUX_CONF_DIR "$TMUX_CONF_DIR"'
