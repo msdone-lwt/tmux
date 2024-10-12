@@ -190,6 +190,7 @@ bind -T copy-mode-vi = send-keys -X search-reverse
 bind o run-shell "open #{pane_current_path}"
 
 bind -r g display-popup -d '#{pane_current_path}' -w90% -h90% -E lazygit
+bind -r G display-popup -w95% -h95% -E lazygit.exe
 
 set -g status-position top # move status line to top
 
