@@ -33,7 +33,7 @@ set -g set-clipboard on
 
 # -- activity -------------------------------------------------------------------
 set -g monitor-activity on
-set -g visual-activity both
+set -g visual-activity off
 set -g activity-action other
 
 # -- display -------------------------------------------------------------------
@@ -196,8 +196,10 @@ set -g status-position top # move status line to top
 
 # -- TPM ------------------------------------------------------------------
 set -g @plugin 'tmux-plugins/tmux-cpu'
+# set -g status-right 'CPU: #{cpu_percentage} % | %a %h-%d %H:%M'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @plugin 'joshmedeski/tmux-nerd-font-window-name'
 
 # for vim
 set -g @resurrect-strategy-vim 'session'
@@ -440,7 +442,7 @@ tmux_conf_theme_window_status_current_format="#I #W#{?#{||:#{window_bell_flag},#
 # window activity status style
 tmux_conf_theme_window_status_activity_fg="default"
 tmux_conf_theme_window_status_activity_bg="default"
-tmux_conf_theme_window_status_activity_attr="underscore"
+tmux_conf_theme_window_status_activity_attr="blink"
 
 # window bell status style
 tmux_conf_theme_window_status_bell_fg="$tmux_conf_theme_colour_5"
@@ -489,8 +491,8 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{uptime_s}
 #     - #{username}
 #     - #{username_ssh}
-tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{loadavg} "
-tmux_conf_theme_status_right=" #{prefix} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,tmux_continuum 异常}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{cpu_percentage} "
+tmux_conf_theme_status_right=" #{prefix} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,tmux_continuum 异常}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %m-%d %H:%M | #{username}#{root} | #{hostname} "
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
