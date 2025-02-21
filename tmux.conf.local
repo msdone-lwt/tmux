@@ -492,7 +492,7 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{username}
 #     - #{username_ssh}
 tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{cpu_percentage} "
-tmux_conf_theme_status_right=" #{prefix} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,tmux_continuum 异常}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_right="#{prefix} #{network_speed} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M | #{username}#{root} | #{hostname} "
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -700,6 +700,36 @@ tmux_conf_uninstall_plugins_on_reload=true
 #   curl -f -s -m 2 -6 ifconfig.me
 #   sleep 300                                         # sleep for 5 minutes, throttle network requests whatever the value of status-interval
 # }
+#
+# 获取网络接收（rx）和发送（tx）速率的函数
+# network_speed() {
+#   local interface="eth0"  # 请根据实际情况修改网卡名称
+#   local rx1 tx1 rx2 tx2
+#   rx1=$(cat /sys/class/net/$interface/statistics/rx_bytes)
+#   tx1=$(cat /sys/class/net/$interface/statistics/tx_bytes)
+#   sleep 1
+#   rx2=$(cat /sys/class/net/$interface/statistics/rx_bytes)
+#   tx2=$(cat /sys/class/net/$interface/statistics/tx_bytes)
+#   local rx_rate tx_rate
+#   rx_rate=$(( (rx2 - rx1) >> 10 ))  # 以 KB/s 为单位
+#   tx_rate=$(( (tx2 - tx1) >> 10 ))  # 以 KB/s 为单位
+#
+#   if [ "$rx_rate" -ge 1024 ]; then
+#     rx_rate=$(( rx_rate >> 10 ))
+#     rx_unit="MB/s"
+#   else
+#     rx_unit="KB/s"
+#   fi
+#
+#   if [ "$tx_rate" -ge 1024 ]; then
+#     tx_rate=$(( tx_rate >> 10 ))
+#     tx_unit="MB/s"
+#   else
+#     tx_unit="KB/s"
+#   fi
+#   printf "#[fg=#B3CB92] %s%s#[default] #[fg=#D7BE89] %s%s#[default]" "$rx_rate" "$rx_unit" "$tx_rate" "$tx_unit"
+# }
+#
 #
 # "$@"
 # # /!\ do not remove the previous line
