@@ -39,7 +39,7 @@ set -g activity-action other
 # -- display -------------------------------------------------------------------
 set -g display-panes-time 2000 # slightly longer pane indicators display time
 set -g display-time 2000      # slightly longer status messages display time
-set -g status-interval 5     # redraw status line every 1 seconds
+set -g status-interval 3     # redraw status line every 1 seconds
 
 # -- navigation ----------------------------------------------------------------
 unbind n
@@ -196,20 +196,19 @@ set -g status-position top # move status line to top
 
 # -- TPM ------------------------------------------------------------------
 set -g @plugin 'tmux-plugins/tmux-cpu'
-# set -g status-right 'CPU: #{cpu_percentage} % | %a %h-%d %H:%M'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @plugin 'joshmedeski/tmux-nerd-font-window-name'
+set -g @plugin 'aserowy/tmux.nvim'
 
 # for vim
-set -g @resurrect-strategy-vim 'session'
+# set -g @resurrect-strategy-vim 'session'
 # for neovim
 set -g @resurrect-strategy-nvim 'session'
-set -g @continuum-save-interval '1'
+set -g @continuum-save-interval '1' # min
 set -g @continuum-restore 'on'
 set -g @resurrect-capture-pane-contents 'on'
 
-set -g @plugin 'aserowy/tmux.nvim'
 
 # navigation
 set -g @tmux-nvim-navigation-cycle true
