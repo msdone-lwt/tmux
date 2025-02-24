@@ -208,7 +208,6 @@ set -g @resurrect-strategy-nvim 'session'
 set -g @continuum-save-interval '1'
 set -g @continuum-restore 'on'
 set -g @resurrect-capture-pane-contents 'on'
-set -g status-right 'Continuum status: #{continuum_status}'
 
 set -g @plugin 'aserowy/tmux.nvim'
 
@@ -492,7 +491,7 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{username}
 #     - #{username_ssh}
 tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{cpu_percentage} "
-tmux_conf_theme_status_right="#{prefix} #{network_speed} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_right="#{prefix} #{network_speed} #{get_github_status} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M #{weather} | #{username}#{root} | #{hostname}"
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -666,6 +665,12 @@ tmux_conf_uninstall_plugins_on_reload=true
 
 
 # -- custom variables ----------------------------------------------------------
+# NOTE:
+# test() {
+#   RANDOM_STRING=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 3)
+#   tmux set-environment -g RANDOM_STRING "$RANDOM_STRING"   # 可以修改全局变量，达到刷新 tmux status bar 的效果
+#   sleep 3
+# }
 
 # to define a custom #{foo} variable, define a POSIX shell function between the
 # '# EOF' and the '# "$@"' lines. Please note that the opening brace { character
@@ -683,7 +688,7 @@ tmux_conf_uninstall_plugins_on_reload=true
 # # /!\ do not "uncomment" the functions: the leading "# " characters are needed
 #
 # weather() {                                         # see https://github.com/chubin/wttr.in#one-line-output
-#   curl -f -s -m 2 'wttr.in?format=3' || printf '\n' # /!\ make sure curl is installed
+#   curl -f -s -m 2 'wttr.in/ChangSha?format=1' | sed 's/.*/#[fg=#00BCF2]&#[default]/' || printf '\n' # /!\ make sure curl is installed
 #   sleep 900                                         # sleep for 15 minutes, throttle network requests whatever the value of status-interval
 # }
 #
@@ -699,6 +704,16 @@ tmux_conf_uninstall_plugins_on_reload=true
 # wan_ip_v6() {
 #   curl -f -s -m 2 -6 ifconfig.me
 #   sleep 300                                         # sleep for 5 minutes, throttle network requests whatever the value of status-interval
+# }
+#
+# get_github_status() {
+#   local status=$(curl -s -o /dev/null -w "%{http_code}" -m 60 https://github.com)
+#   if [ "$status" -eq 200 ]; then
+#     printf "#[fg=green]#[default]"
+#   else
+#     printf "#[fg=red]#[default]"
+#   fi
+#   sleep 60
 # }
 #
 # 获取网络接收（rx）和发送（tx）速率的函数
@@ -729,7 +744,6 @@ tmux_conf_uninstall_plugins_on_reload=true
 #   fi
 #   printf "#[fg=#B3CB92] %s%s#[default] #[fg=#D7BE89] %s%s#[default]" "$rx_rate" "$rx_unit" "$tx_rate" "$tx_unit"
 # }
-#
 #
 # "$@"
 # # /!\ do not remove the previous line
