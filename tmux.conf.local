@@ -494,7 +494,7 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{username_ssh}
 # tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | #{pretty_pane_current_path} "
 tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{cpu_percentage} "
-tmux_conf_theme_status_right="#{prefix}#{github_stars} #{github_stars yetone/avante.nvim} #{network_speed} #{get_github_status} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M #{weather} | #{username}#{root} | #{hostname}"
+tmux_conf_theme_status_right="#{get_github_status} #{prefix} #{github_stars} #{github_stars yetone/avante.nvim} #{network_speed} #{GITHUB_STATUS} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M #{weather} | #{username}#{root} | #{hostname}"
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -730,12 +730,19 @@ tmux_conf_uninstall_plugins_on_reload=true
 # }
 #
 # get_github_status() {
-#   local status=$(curl -s -o /dev/null -w "%{http_code}" -m 60 https://github.com)
-#   if [ "$status" -eq 200 ]; then
-#     printf "#[fg=green]#[default]"
-#   else
-#     printf "#[fg=red]#[default]"
+#   # 检查环境变量是否存在
+#   if [ -z "$GITHUB_STATUS" ]; then
+#     tmux set-environment -g GITHUB_STATUS "#[fg=red]#[default]" 
 #   fi
+#   status=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 https://github.com)
+#   if [ "$status" -eq 200 ]; then
+#     github_status="#[fg=green]#[default]"
+#     tmux set-environment -g GITHUB_STATUS "$github_status"
+#   else
+#     github_status="#[fg=red]#[default]" 
+#     tmux set-environment -g GITHUB_STATUS "$github_status"
+#   fi
+#   printf '\n'
 #   sleep 60
 # }
 #
