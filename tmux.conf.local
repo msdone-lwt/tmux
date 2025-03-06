@@ -494,7 +494,7 @@ tmux_conf_theme_right_separator_sub='\uE0B3'  #   PowerlineSymbols.otf font, see
 #     - #{username_ssh}
 # tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | #{pretty_pane_current_path} "
 tmux_conf_theme_status_left=" ❐ #S | 󰚰#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | 󱤊  #{cpu_percentage} "
-tmux_conf_theme_status_right="#{get_github_status} #{prefix} #{github_stars} #{github_stars yetone/avante.nvim} #{network_speed} #{GITHUB_STATUS} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M #{weather} | #{username}#{root} | #{hostname}"
+tmux_conf_theme_status_right="#{get_github_status} #{prefix} 🐞#{ZENTAO_BUG_COUNT} #{network_speed} #{GITHUB_STATUS} #{mouse}#{pairing}#{synchronized}#{?#{==:#{continuum_status},1},💤,💥}#{?battery_status,#{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %a %h-%d %H:%M #{weather} | #{username}#{root} | #{hostname}"
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -742,8 +742,22 @@ tmux_conf_uninstall_plugins_on_reload=true
 #     github_status="#[fg=red]#[default]" 
 #     tmux set-environment -g GITHUB_STATUS "$github_status"
 #   fi
+#   # zentao
+#   # 检查环境变量是否存在
+#   if [ -z "$ZENTAO_BUG_COUNT" ]; then
+#     tmux set-environment -g ZENTAO_BUG_COUNT "0"
+#   fi
+#   获取 TMUX_CONF_DIR 环境变量的值
+#   TMUX_CONF_PATH=$(tmux show-environment -g TMUX_CONF_DIR 2>/dev/null | sed 's/^TMUX_CONF_DIR=//')
+#   如果无法获取 TMUX_CONF_DIR，则使用默认路径
+#   if [ -z "$TMUX_CONF_PATH" ]; then
+#     TMUX_CONF_PATH="~/.config/tmux"
+#   fi
+#   # 执行禅道脚本，使用 --tmux_env 参数自动设置环境变量
+#   bash "$TMUX_CONF_PATH/custom/zentao.sh" -u https://zentao.openvalley.net/zentao -a 25197 -p WcygsT0903 --assigned_to 25197 -l 500 --tmux_env >> /dev/null 2>&1
+#   
 #   printf '\n'
-#   sleep 60
+#   sleep 300
 # }
 #
 # 获取网络接收（rx）和发送（tx）速率的函数
