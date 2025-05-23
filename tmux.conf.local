@@ -698,7 +698,7 @@ tmux_conf_uninstall_plugins_on_reload=true
 #
 # # usage: #{weather}
 # weather() {                                         # see https://github.com/chubin/wttr.in#one-line-output
-#   curl -f -s -m 2 'wttr.in/ChangSha?format=1' | sed 's/.*/#[fg=#00BCF2]&#[default]/' || printf '\n' # /!\ make sure curl is installed
+#   curl -H 'Accept-Language:zh-CN' -f -s -m 2 'wttr.in/ChangSha?format=1' | sed 's/.*/#[fg=#00BCF2]&#[default]/' || printf '\n' # /!\ make sure curl is installed
 #   sleep 900                                         # sleep for 15 minutes, throttle network requests whatever the value of status-interval
 # }
 #
