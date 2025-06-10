@@ -12,6 +12,7 @@ ALL_PRODUCT_ID=false
 PAGE_LIMIT=20  # 每页默认显示数量
 ASSIGNED_TO=""  # 默认不按指派人过滤
 RESOLVED_BY=""  # 默认不按解决人过滤
+RESOLUTION_FIXED=false # 默认不过滤resolution
 TMUX_ENV=false  # 默认不设置tmux环境变量
 
 # 函数：显示帮助信息
@@ -30,6 +31,7 @@ show_help() {
     echo "  --all_product_id 仅显示所有产品ID，不获取bug信息"
     echo "  --assigned_to 用户名 只显示指派给指定用户的未解决bug (默认status=active)"
     echo "  --resolvedBy 用户名 只显示由指定用户解决的bug (默认status=all)"
+    echo "  --resolutionByFixed 只显示解决方案为已解决的bug,过滤掉无法复现、重复bug等方案的bug，默认不启用,和 resolvedBy 配合使用"
     echo "  --tmux_env   将bug数量设置为tmux环境变量"
     echo "  -h           显示此帮助信息"
     exit 1
@@ -50,6 +52,7 @@ while [ $# -gt 0 ]; do
         --all_product_id) ALL_PRODUCT_ID=true; shift ;;
         --assigned_to) ASSIGNED_TO="$2"; STATUS="active"; shift 2 ;;
         --resolvedBy) RESOLVED_BY="$2"; STATUS="all"; shift 2 ;;
+        --resolutionByFixed) RESOLUTION_FIXED=true; shift ;;
         --tmux_env) TMUX_ENV=true; shift ;;
         -h) show_help ;;
         -*) echo "无效选项: $1" >&2; show_help ;;
@@ -273,6 +276,7 @@ process_bugs_data() {
     local status=$3
     local assigned_to=$4
     local resolved_by_user=$5 # New parameter for resolvedBy
+    local resolution_fixed_flag=$6 # New parameter for resolutionByFixed
     local bug_count_return=0  # 返回bug计数
     
     # 使用jq提取bug数量和必要信息
@@ -327,6 +331,13 @@ process_bugs_data() {
                     bug_count=$(echo "$filtered_bugs" | jq 'length')
                     status_text="${status_text}且由 $resolved_by_user 解决"
                 fi
+
+                # 如果指定了resolutionByFixed，进一步过滤
+                if [ "$resolution_fixed_flag" = true ]; then
+                    filtered_bugs=$(echo "$filtered_bugs" | jq 'map(select(.resolution == "fixed"))')
+                    bug_count=$(echo "$filtered_bugs" | jq 'length')
+                    status_text="${status_text}且resolution为fixed"
+                fi
         
         echo "$product_text 的 $status_text Bug数量: $bug_count (总记录: $total，每页: $limit，共 $pages 页)"
         bug_count_return=$bug_count  # 保存bug计数用于返回
@@ -334,8 +345,8 @@ process_bugs_data() {
         # 打印每条bug的ID和标题（只显示过滤后的结果）
         if [ "$bug_count" -gt 0 ]; then
             echo "Bug列表："
-            # 将每个bug的id、title和status打印为一行
-            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status)"'
+            # 将每个bug的id、title、status和resolution打印为一行
+            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
             echo ""
         fi
     else
@@ -406,7 +417,7 @@ main() {
         # 获取第1页数据并查看总页数
         bugs_data=$(get_bugs "$token" "$PRODUCT" 1)
         local product_bug_count
-        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY")
+        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED")
         # 确保我们只获取数字部分进行累加
         product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
         total_bug_count=$((total_bug_count + product_bug_count))
@@ -426,7 +437,7 @@ main() {
                 echo "正在获取第 $page_num 页..."
                 bugs_data=$(get_bugs "$token" "$PRODUCT" "$page_num")
                 local page_bug_count
-                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY")
+                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED")
                 # 确保我们只获取数字部分进行累加
                 page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                 total_bug_count=$((total_bug_count + page_bug_count))
@@ -458,7 +469,7 @@ main() {
             # 获取第1页数据
             bugs_data=$(get_bugs "$token" "$product_id" 1)
             local product_bug_count
-            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY") || continue
+            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED") || continue
             # 确保我们只获取数字部分进行累加
             product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
             total_bug_count=$((total_bug_count + product_bug_count))
@@ -478,7 +489,7 @@ main() {
                     echo "正在获取第 $page_num 页..."
                     bugs_data=$(get_bugs "$token" "$product_id" "$page_num")
                     local page_bug_count
-                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY") || break
+                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED") || break
                     # 确保我们只获取数字部分进行累加
                     page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                     total_bug_count=$((total_bug_count + page_bug_count))
@@ -505,6 +516,10 @@ main() {
     if [ -n "$RESOLVED_BY" ]; then
         status_text="${status_text}且由 $RESOLVED_BY 解决"
     fi
+
+    if [ "$RESOLUTION_FIXED" = true ]; then
+        status_text="${status_text}且resolution为fixed"
+    fi
     
 
     if [ -n "$PRODUCT" ]; then
@@ -525,7 +540,7 @@ main() {
             fi
             
             # 打印bug详情
-            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status)"'
+            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
         done
     else
         echo "=============================================="
@@ -579,8 +594,13 @@ main() {
                                             filtered_bugs=$(echo "$filtered_bugs" | jq --arg resolved_by "$RESOLVED_BY" 'map(select(.resolvedBy.account == $resolved_by))')
                                         fi
                     
+                                                            # 如果指定了resolutionByFixed，进一步过滤
+                                                            if [ "$RESOLUTION_FIXED" = true ]; then
+                                                                filtered_bugs=$(echo "$filtered_bugs" | jq 'map(select(.resolution == "fixed"))')
+                                                            fi
+                    
                     # 打印bug详情
-                    echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status)"'
+                    echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
                 done
             fi
         done
