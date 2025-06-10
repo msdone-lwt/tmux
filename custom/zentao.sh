@@ -11,6 +11,7 @@ CURL_OPTS="-s"
 ALL_PRODUCT_ID=false
 PAGE_LIMIT=20  # 每页默认显示数量
 ASSIGNED_TO=""  # 默认不按指派人过滤
+RESOLVED_BY=""  # 默认不按解决人过滤
 TMUX_ENV=false  # 默认不设置tmux环境变量
 
 # 函数：显示帮助信息
@@ -27,7 +28,8 @@ show_help() {
     echo "  -i ID        指定bug ID获取详情"
     echo "  -l 数量      每页显示的记录数量（默认20）"
     echo "  --all_product_id 仅显示所有产品ID，不获取bug信息"
-    echo "  --assigned_to 用户名 只显示指派给指定用户的未解决bug"
+    echo "  --assigned_to 用户名 只显示指派给指定用户的未解决bug (默认status=active)"
+    echo "  --resolvedBy 用户名 只显示由指定用户解决的bug (默认status=all)"
     echo "  --tmux_env   将bug数量设置为tmux环境变量"
     echo "  -h           显示此帮助信息"
     exit 1
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
         -l) PAGE_LIMIT="$2"; shift 2 ;;
         --all_product_id) ALL_PRODUCT_ID=true; shift ;;
         --assigned_to) ASSIGNED_TO="$2"; STATUS="active"; shift 2 ;;
+        --resolvedBy) RESOLVED_BY="$2"; STATUS="all"; shift 2 ;;
         --tmux_env) TMUX_ENV=true; shift ;;
         -h) show_help ;;
         -*) echo "无效选项: $1" >&2; show_help ;;
@@ -240,6 +243,8 @@ get_bugs() {
     
     # 添加页码参数
     params_base="${params_base}&page=$page"
+    # Always fetch all bugs from the API, client-side will filter if needed based on global STATUS
+    params_base="${params_base}&status=all"
     
     # 构建API URL
     local api_url="$URL/api.php/v1/bugs${params_base}"
@@ -267,6 +272,7 @@ process_bugs_data() {
     local product_id=$2
     local status=$3
     local assigned_to=$4
+    local resolved_by_user=$5 # New parameter for resolvedBy
     local bug_count_return=0  # 返回bug计数
     
     # 使用jq提取bug数量和必要信息
@@ -313,6 +319,14 @@ process_bugs_data() {
             bug_count=$(echo "$filtered_bugs" | jq 'length')
             status_text="${status_text}且指派给 $assigned_to"
         fi
+        
+                # 如果指定了resolvedBy，进一步过滤
+                if [ -n "$resolved_by_user" ]; then
+                    # Filter for bugs where resolvedBy is not null and resolvedBy.account matches
+                    filtered_bugs=$(echo "$filtered_bugs" | jq --arg resolved_by "$resolved_by_user" 'map(select(.resolvedBy.account == $resolved_by))')
+                    bug_count=$(echo "$filtered_bugs" | jq 'length')
+                    status_text="${status_text}且由 $resolved_by_user 解决"
+                fi
         
         echo "$product_text 的 $status_text Bug数量: $bug_count (总记录: $total，每页: $limit，共 $pages 页)"
         bug_count_return=$bug_count  # 保存bug计数用于返回
@@ -392,7 +406,7 @@ main() {
         # 获取第1页数据并查看总页数
         bugs_data=$(get_bugs "$token" "$PRODUCT" 1)
         local product_bug_count
-        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO")
+        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY")
         # 确保我们只获取数字部分进行累加
         product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
         total_bug_count=$((total_bug_count + product_bug_count))
@@ -412,7 +426,7 @@ main() {
                 echo "正在获取第 $page_num 页..."
                 bugs_data=$(get_bugs "$token" "$PRODUCT" "$page_num")
                 local page_bug_count
-                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO")
+                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY")
                 # 确保我们只获取数字部分进行累加
                 page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                 total_bug_count=$((total_bug_count + page_bug_count))
@@ -444,7 +458,7 @@ main() {
             # 获取第1页数据
             bugs_data=$(get_bugs "$token" "$product_id" 1)
             local product_bug_count
-            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO") || continue
+            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY") || continue
             # 确保我们只获取数字部分进行累加
             product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
             total_bug_count=$((total_bug_count + product_bug_count))
@@ -464,7 +478,7 @@ main() {
                     echo "正在获取第 $page_num 页..."
                     bugs_data=$(get_bugs "$token" "$product_id" "$page_num")
                     local page_bug_count
-                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO") || break
+                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY") || break
                     # 确保我们只获取数字部分进行累加
                     page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                     total_bug_count=$((total_bug_count + page_bug_count))
@@ -486,6 +500,10 @@ main() {
     
     if [ -n "$ASSIGNED_TO" ]; then
         status_text="${status_text}且指派给 $ASSIGNED_TO"
+    fi
+    
+    if [ -n "$RESOLVED_BY" ]; then
+        status_text="${status_text}且由 $RESOLVED_BY 解决"
     fi
     
 
@@ -555,6 +573,11 @@ main() {
                     if [ -n "$ASSIGNED_TO" ]; then
                         filtered_bugs=$(echo "$filtered_bugs" | jq --arg assigned "$ASSIGNED_TO" 'map(select(.assignedTo.account == $assigned))')
                     fi
+                    
+                                        # 如果指定了resolvedBy，进一步过滤
+                                        if [ -n "$RESOLVED_BY" ]; then
+                                            filtered_bugs=$(echo "$filtered_bugs" | jq --arg resolved_by "$RESOLVED_BY" 'map(select(.resolvedBy.account == $resolved_by))')
+                                        fi
                     
                     # 打印bug详情
                     echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status)"'
