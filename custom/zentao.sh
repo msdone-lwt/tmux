@@ -13,6 +13,7 @@ PAGE_LIMIT=20  # 每页默认显示数量
 ASSIGNED_TO=""  # 默认不按指派人过滤
 RESOLVED_BY=""  # 默认不按解决人过滤
 RESOLUTION_FIXED=false # 默认不过滤resolution
+OPENED_AFTER_DATE="" # 默认不过滤创建日期
 TMUX_ENV=false  # 默认不设置tmux环境变量
 
 # 函数：显示帮助信息
@@ -32,6 +33,7 @@ show_help() {
     echo "  --assigned_to 用户名 只显示指派给指定用户的未解决bug (默认status=active)"
     echo "  --resolvedBy 用户名 只显示由指定用户解决的bug (默认status=all)"
     echo "  --resolutionByFixed 只显示解决方案为已解决的bug,过滤掉无法复现、重复bug等方案的bug，默认不启用,和 resolvedBy 配合使用"
+    echo "  --opened-after YYYY-MM-DD 只显示在此日期之后创建的bug"
     echo "  --tmux_env   将bug数量设置为tmux环境变量"
     echo "  -h           显示此帮助信息"
     exit 1
@@ -53,6 +55,14 @@ while [ $# -gt 0 ]; do
         --assigned_to) ASSIGNED_TO="$2"; STATUS="active"; shift 2 ;;
         --resolvedBy) RESOLVED_BY="$2"; STATUS="all"; shift 2 ;;
         --resolutionByFixed) RESOLUTION_FIXED=true; shift ;;
+        --opened-after)
+            OPENED_AFTER_DATE="$2"
+            if ! [[ "$OPENED_AFTER_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                echo "错误: --opened-after 日期格式无效. 请使用 YYYY-MM-DD 格式." >&2
+                show_help
+            fi
+            shift 2
+            ;;
         --tmux_env) TMUX_ENV=true; shift ;;
         -h) show_help ;;
         -*) echo "无效选项: $1" >&2; show_help ;;
@@ -277,6 +287,7 @@ process_bugs_data() {
     local assigned_to=$4
     local resolved_by_user=$5 # New parameter for resolvedBy
     local resolution_fixed_flag=$6 # New parameter for resolutionByFixed
+    local opened_after_date_param=$7 # New parameter for openedDate filtering
     local bug_count_return=0  # 返回bug计数
     
     # 使用jq提取bug数量和必要信息
@@ -337,6 +348,14 @@ process_bugs_data() {
                     filtered_bugs=$(echo "$filtered_bugs" | jq 'map(select(.resolution == "fixed"))')
                     bug_count=$(echo "$filtered_bugs" | jq 'length')
                     status_text="${status_text}且resolution为fixed"
+                fi
+
+                # 如果指定了opened-after，进一步过滤
+                if [ -n "$opened_after_date_param" ]; then
+                    # openedDate is like "YYYY-MM-DD HH:MM:SS", we only need the date part
+                    filtered_bugs=$(echo "$filtered_bugs" | jq --arg opened_after "$opened_after_date_param" 'map(select(.openedDate and ((.openedDate | sub(" .*"; "")) > $opened_after)))')
+                    bug_count=$(echo "$filtered_bugs" | jq 'length')
+                    status_text="${status_text}且在 $opened_after_date_param 之后创建"
                 fi
         
         echo "$product_text 的 $status_text Bug数量: $bug_count (总记录: $total，每页: $limit，共 $pages 页)"
@@ -417,7 +436,7 @@ main() {
         # 获取第1页数据并查看总页数
         bugs_data=$(get_bugs "$token" "$PRODUCT" 1)
         local product_bug_count
-        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED")
+        product_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED" "$OPENED_AFTER_DATE")
         # 确保我们只获取数字部分进行累加
         product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
         total_bug_count=$((total_bug_count + product_bug_count))
@@ -437,7 +456,7 @@ main() {
                 echo "正在获取第 $page_num 页..."
                 bugs_data=$(get_bugs "$token" "$PRODUCT" "$page_num")
                 local page_bug_count
-                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED")
+                page_bug_count=$(process_bugs_data "$bugs_data" "$PRODUCT" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED" "$OPENED_AFTER_DATE")
                 # 确保我们只获取数字部分进行累加
                 page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                 total_bug_count=$((total_bug_count + page_bug_count))
@@ -469,7 +488,7 @@ main() {
             # 获取第1页数据
             bugs_data=$(get_bugs "$token" "$product_id" 1)
             local product_bug_count
-            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED") || continue
+            product_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED" "$OPENED_AFTER_DATE") || continue
             # 确保我们只获取数字部分进行累加
             product_bug_count=$(echo "$product_bug_count" | grep -o '[0-9]*$')
             total_bug_count=$((total_bug_count + product_bug_count))
@@ -489,7 +508,7 @@ main() {
                     echo "正在获取第 $page_num 页..."
                     bugs_data=$(get_bugs "$token" "$product_id" "$page_num")
                     local page_bug_count
-                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED") || break
+                    page_bug_count=$(process_bugs_data "$bugs_data" "$product_id" "$STATUS" "$ASSIGNED_TO" "$RESOLVED_BY" "$RESOLUTION_FIXED" "$OPENED_AFTER_DATE") || break
                     # 确保我们只获取数字部分进行累加
                     page_bug_count=$(echo "$page_bug_count" | grep -o '[0-9]*$')
                     total_bug_count=$((total_bug_count + page_bug_count))
@@ -519,6 +538,10 @@ main() {
 
     if [ "$RESOLUTION_FIXED" = true ]; then
         status_text="${status_text}且resolution为fixed"
+    fi
+
+    if [ -n "$OPENED_AFTER_DATE" ]; then
+        status_text="${status_text}且在 $OPENED_AFTER_DATE 之后创建"
     fi
     
 
@@ -597,6 +620,11 @@ main() {
                                                             # 如果指定了resolutionByFixed，进一步过滤
                                                             if [ "$RESOLUTION_FIXED" = true ]; then
                                                                 filtered_bugs=$(echo "$filtered_bugs" | jq 'map(select(.resolution == "fixed"))')
+                                                            fi
+                    
+                                                            # 如果指定了opened-after，进一步过滤
+                                                            if [ -n "$OPENED_AFTER_DATE" ]; then
+                                                                filtered_bugs=$(echo "$filtered_bugs" | jq --arg opened_after "$OPENED_AFTER_DATE" 'map(select(.openedDate and ((.openedDate | sub(" .*"; "")) > $opened_after)))')
                                                             fi
                     
                     # 打印bug详情
