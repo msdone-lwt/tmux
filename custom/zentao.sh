@@ -364,8 +364,8 @@ process_bugs_data() {
         # 打印每条bug的ID和标题（只显示过滤后的结果）
         if [ "$bug_count" -gt 0 ]; then
             echo "Bug列表："
-            # 将每个bug的id、title、status和resolution打印为一行
-            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
+            # 将每个bug的title、url、status和resolution打印为一行
+            echo "$filtered_bugs" | jq -r --arg baseURL "$URL" '.[] | "标题: \(.title) | url: \($baseURL)/bug-view-\(.id).html | 状态: \(.status) | Resolution: \(.resolution)"'
             echo ""
         fi
     else
@@ -554,16 +554,41 @@ main() {
         for ((page_num=1; page_num<=total_pages; page_num++)); do
             bugs_data=$(get_bugs "$token" "$PRODUCT" "$page_num")
             
-            # 根据状态过滤bug
-            local filtered_bugs
-            if [ "$STATUS" = "all" ]; then
-                filtered_bugs=$(echo "$bugs_data" | jq '.bugs')
-            else
-                filtered_bugs=$(echo "$bugs_data" | jq --arg status "$STATUS" '.bugs | map(select(.status == $status))')
+            # 对当前页的bugs应用所有指定的过滤器
+            local filtered_bugs_list
+            filtered_bugs_list=$(echo "$bugs_data" | jq '.bugs') # Start with all bugs from the current page
+
+            # 根据状态进行客户端过滤 (如果STATUS不是 "all")
+            if [ "$STATUS" != "all" ]; then
+                filtered_bugs_list=$(echo "$filtered_bugs_list" | jq --arg status_filter "$STATUS" 'map(select(.status == $status_filter))')
             fi
             
-            # 打印bug详情
-            echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
+            # 如果指定了assignedTo，进一步过滤
+            if [ -n "$ASSIGNED_TO" ]; then
+                filtered_bugs_list=$(echo "$filtered_bugs_list" | jq --arg assigned "$ASSIGNED_TO" 'map(select(.assignedTo.account == $assigned))')
+            fi
+            
+            # 如果指定了resolvedBy，进一步过滤
+            if [ -n "$RESOLVED_BY" ]; then
+                # Filter for bugs where resolvedBy is not null and resolvedBy.account matches
+                filtered_bugs_list=$(echo "$filtered_bugs_list" | jq --arg resolved_by "$RESOLVED_BY" 'map(select(.resolvedBy.account == $resolved_by))')
+            fi
+
+            # 如果指定了resolutionByFixed，进一步过滤
+            if [ "$RESOLUTION_FIXED" = true ]; then
+                filtered_bugs_list=$(echo "$filtered_bugs_list" | jq 'map(select(.resolution == "fixed"))')
+            fi
+
+            # 如果指定了opened-after，进一步过滤
+            if [ -n "$OPENED_AFTER_DATE" ]; then
+                # openedDate is like "YYYY-MM-DD HH:MM:SS", we only need the date part
+                filtered_bugs_list=$(echo "$filtered_bugs_list" | jq --arg opened_after "$OPENED_AFTER_DATE" 'map(select(.openedDate and ((.openedDate | sub(" .*"; "")) > $opened_after)))')
+            fi
+            
+            # 打印过滤后的bug详情 (如果列表不为空)
+            if [ "$(echo "$filtered_bugs_list" | jq 'length')" -gt 0 ]; then
+                echo "$filtered_bugs_list" | jq -r --arg baseURL "$URL" '.[] | "标题: \(.title) | url: \($baseURL)/bug-view-\(.id).html | 状态: \(.status) | Resolution: \(.resolution)"'
+            fi
         done
     else
         echo "=============================================="
@@ -628,7 +653,7 @@ main() {
                                                             fi
                     
                     # 打印bug详情
-                    echo "$filtered_bugs" | jq -r '.[] | "ID: \(.id) | 标题: \(.title) | 状态: \(.status) | Resolution: \(.resolution)"'
+                    echo "$filtered_bugs" | jq -r --arg baseURL "$URL" '.[] | "标题: \(.title) | url: \($baseURL)/bug-view-\(.id).html | 状态: \(.status) | Resolution: \(.resolution)"'
                 done
             fi
         done
